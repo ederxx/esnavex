@@ -9,11 +9,9 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-
     "migrate:import-collections": "node ./scripts/firebase/importCollections.cjs",
     "migrate:import-users": "node ./scripts/firebase/importUsers.cjs",
     "migrate:export-from-supabase": "node ./scripts/firebase/exportFromSupabase.cjs",
-
     "firebase:login": "firebase login",
     "firebase:use": "firebase use --add",
     "deploy:rules": "firebase deploy --only firestore:rules",
