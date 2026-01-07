@@ -1,0 +1,53 @@
+// Firestore security rules - basic role-based access for profiles and user_roles
+// - Users can create and manage their own profile (document id = uid)
+// - Admins (user_roles/{uid}.role == 'admin') can read/write other users' profiles and manage roles
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin(uid) {
+      return uid != null && get(/databases/$(database)/documents/user_roles/$(uid)).data.role == 'admin';
+    }
+
+    match /profiles/{userId} {
+      // Create: user can create their own profile
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // Read: owner or admin
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin(request.auth.uid));
+
+      // Update/Delete: owner or admin
+      allow update, delete: if request.auth != null && (request.auth.uid == userId || isAdmin(request.auth.uid));
+
+      // Validate fields on create/update
+      function validProfile() {
+        return (request.resource.data.keys().hasAll(["id"]) && request.resource.data.id == userId)
+          && (request.resource.data.full_name is string || request.resource.data.full_name == null)
+          && (request.resource.data.stage_name is string || request.resource.data.stage_name == null)
+          && (request.resource.data.avatar_url is string || request.resource.data.avatar_url == null)
+          && (request.resource.data.phone is string || request.resource.data.phone == null)
+          && (request.resource.data.bio is string || request.resource.data.bio == null);
+      }
+
+      allow create, update: if request.auth != null && (request.auth.uid == userId || isAdmin(request.auth.uid)) && validProfile();
+    }
+
+    match /user_roles/{roleId} {
+      // Read: owner or admin
+      allow read: if request.auth != null && (request.auth.uid == roleId || isAdmin(request.auth.uid));
+
+      // Only admins can write roles
+      allow create, update, delete: if request.auth != null && isAdmin(request.auth.uid);
+
+      // Validate role shape
+      allow create, update: if request.resource.data.keys().hasAll(["user_id", "role"]) &&
+        (request.resource.data.role in ["admin", "member", "visitor", "guest"]);
+    }
+
+    // Default deny for everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
